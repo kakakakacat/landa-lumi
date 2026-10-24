@@ -2,7 +2,7 @@ name: Refresh Landa token
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 2,14 * * *'
       timezone: Asia/Shanghai
   workflow_dispatch:
 
