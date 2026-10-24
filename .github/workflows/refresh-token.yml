@@ -1,0 +1,74 @@
+name: Refresh Landa token
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+      timezone: Asia/Shanghai
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+concurrency:
+  group: landa-token-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wake mix5 and wait for token refresh
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          site = 'https://landa.kakacat.net/api/token-refresh'
+          audience = 'landa-token-refresh'
+          oidc_url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']
+          oidc_url += ('&' if '?' in oidc_url else '?') + urllib.parse.urlencode({'audience': audience})
+          oidc_request = urllib.request.Request(
+              oidc_url,
+              headers={'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']},
+          )
+          with urllib.request.urlopen(oidc_request, timeout=20) as response:
+              identity = json.load(response)['value']
+
+          def call(method, url):
+              request = urllib.request.Request(
+                  url, method=method,
+                  headers={'Authorization': 'Bearer ' + identity, 'Accept': 'application/json'},
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  raise SystemExit(f'Token refresh API returned HTTP {error.code}: {error.read(500).decode("utf-8", "replace")}')
+
+          started = call('POST', site)
+          if not started.get('ok') or not started.get('job', {}).get('id'):
+              raise SystemExit(f'Could not start token refresh: {started.get("error", "unknown error")}')
+          job_id = started['job']['id']
+          print(f'Token refresh job: {job_id}')
+
+          for _ in range(60):
+              time.sleep(5)
+              status = call('GET', site + '?' + urllib.parse.urlencode({'id': job_id}))
+              job = status.get('job') or {}
+              state = job.get('status')
+              message = job.get('message', '')
+              print(f'{state}: {message}', flush=True)
+              if state == 'done':
+                  break
+              if state == 'failed':
+                  raise SystemExit('Token refresh failed')
+          else:
+              raise SystemExit('Token refresh timed out after 5 minutes')
+          PY
+
