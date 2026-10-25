@@ -5,6 +5,9 @@ on:
     - cron: '0 2,14 * * *'
       timezone: Asia/Shanghai
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/refresh-token.yml'
 
 permissions:
   id-token: write
@@ -43,7 +46,7 @@ jobs:
           def call(method, url):
               request = urllib.request.Request(
                   url, method=method,
-                  headers={'Authorization': 'Bearer ' + identity, 'Accept': 'application/json'},
+                  headers={'Authorization': 'Bearer ' + identity, 'Accept': 'application/json', 'User-Agent': 'landa-token-refresh/1.0'},
               )
               try:
                   with urllib.request.urlopen(request, timeout=30) as response:
