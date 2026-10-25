@@ -5,9 +5,6 @@ on:
     - cron: '0 2,14 * * *'
       timezone: Asia/Shanghai
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/refresh-token.yml'
 
 permissions:
   id-token: write
