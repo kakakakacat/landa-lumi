@@ -2274,16 +2274,16 @@
       }
     });
 
-    async function loadSessionStatus(forceRemoteRefresh) {
+    async function loadSessionStatus(forceRemoteRefresh, quiet) {
       var statusEl = document.getElementById('tokenValidityStatus');
-      if (statusEl) {
+      if (statusEl && !quiet) {
         statusEl.textContent = '验证中…';
         statusEl.className = 'expire-countdown-value';
       }
       try {
         var url = API + '/api/session-status';
         if (forceRemoteRefresh) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'refresh=1';
-        var res = await fetch(url);
+        var res = await fetch(url, { cache: 'no-store' });
         var json = await res.json();
         tokenStatusLoaded = true;
         tokenConfigOk = json.ok !== false;
@@ -2353,6 +2353,7 @@
       updateTokenStatusView();
       updateExpireCountdown();
       setInterval(function() { updateExpireCountdown(); updateTokenStatusView(); }, 1000);
+      setInterval(function() { loadSessionStatus(false, true); }, 60000);
       await refreshDashboardData(true);
       scheduleHourlyPageReload();
     })();
